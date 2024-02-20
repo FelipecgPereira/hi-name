@@ -1,23 +1,56 @@
-pipeline{
+pipeline {
+    environment {
+        dockerImage = "${image}"
+    }
     agent any
-    stages{
-        stage('Build Image'){
-            steps{
-                script{
-                    dockerapp = docker.build("felipepereiracg/hi-name:${env.BUILD_ID}", '-f ./dockerfile ./' )
-                }
-            }
-        }
 
-        stage('Push Image'){
-            steps{
-                script{
-                    docker.withRegistry('https://registry.hub.docker.com', 'dockerhub'){
-                    dockerapp.push('latest')
-                    dockerapp.push("${env.BUILD_ID}")
+    stages {
+        stage('Derrubando o container antigo') {
+            steps {
+                script {
+                    try {
+                        sh 'docker rm -f hi-name-dev'
+                    } catch (Exception e) {
+                        sh "echo $e"
+                    }
+                }
+            }        
+        }
+        stage('Subindo o container novo') {
+            steps {
+                script {
+                    try {
+                        sh 'docker run -d -p 3000:3000 --name=hi-name-dev ' + dockerImage + ':latest'
+                    } catch (Exception e) {
+                        sh "echo $e"
+                        currentBuild.result = 'ABORTED'
+                        error('Erro')
                     }
                 }
             }
         }
+        stage('Fazer o deploy em producao?') {
+             steps {
+                    script {
+                        timeout(time: 10, unit: 'MINUTES') {
+                            input(id: "Deploy Gate", message: "Deploy em produção?", ok: 'Deploy')
+                        }
+                    }
+                }
+        }
+        stage(deploy){
+            steps {
+                    script {
+                        try {
+                            build job: 'hi-name-prd', parameters: [[$class: 'StringParameterValue', name: 'image', value: dockerImage]]
+                        } catch (Exception e) {
+                            sh "echo $e"
+                            currentBuild.result = 'ABORTED'
+                            error('Erro')
+                        }
+                    }
+                }
+            }
+        }
+        
     }
-}
