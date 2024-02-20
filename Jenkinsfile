@@ -15,7 +15,7 @@ pipeline {
                     }
                 }
             }        
-        }
+        }        
         stage('Subindo o container novo') {
             steps {
                 script {
@@ -29,29 +29,27 @@ pipeline {
                 }
             }
         }
-        stage('Fazer o deploy em producao?') {
-             steps {
-                    script {
-                        timeout(time: 10, unit: 'MINUTES') {
-                            input(id: "Deploy Gate", message: "Deploy em produção?", ok: 'Deploy')
-                        }
-                    }
-                }
-        }
-        stage('deploy'){
+        stage ('Fazer o deploy em producao?') {
             steps {
-                    script {
-                        try {
-                            build job: 'hi-name-prd', parameters: [[$class: 'StringParameterValue', name: 'image', value: dockerImage]]
-                        } catch (Exception e) {
-                            sh "echo $e"
-                            currentBuild.result = 'ABORTED'
-                            error('Erro')
-                        }
+                script {
+                    timeout(time: 10, unit: 'MINUTES') {
+                        input(id: "Deploy Gate", message: "Deploy em producao?", ok: 'Deploy')
                     }
                 }
             }
         }
-        
+        stage ('deploy') { 
+            steps {
+                script {
+                    try {
+                        build job: 'hi-name-prd', parameters: [[$class: 'StringParameterValue', name: 'image', value: dockerImage]]
+                    } catch (Exception e) {
+                        sh "echo $e"
+                        currentBuild.result = 'ABORTED'
+                        error('Erro')
+                    }
+                }
+            }
+        }
     }
 }
